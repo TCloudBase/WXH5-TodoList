@@ -1,0 +1,140 @@
+<meta charset="UTF-8">
+<script src="https://acc.cloudbase.vip/todo/src/todo.js" charset="utf-8"></script>
+<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+<script src="https://res.wx.qq.com/open/js/cloudbase/1.1.0/cloud.js"></script>
+<script src="cloudbase_login.js" charset="utf-8"></script>
+<script charset="utf-8">
+  var app = null;                                                   //云开发全局对象
+  var db = null;                                                    //云开发数据库对象
+  var uid = null;                                                   //用户uid
+  window.onload = function(){
+    TODO.init()                                                     //TODO初始化
+    const init_result = cloudbase_login.init({                      //公众号登录初始化
+      appid:'wx----------------',                                   //公众号appid，将以此appid名义进行请求
+      resourceAppid:'wx----------------',                           //资源方小程序appid
+      resourceEnv:'w------',                                        //资源方小程序·云开发环境
+      scope:'snsapi_base'                                           //登录方式：snsapi_userinfo、snsapi_base
+    })
+    if(init_result){                                                //初始化状态，如果为true则继续登录
+      const do_result = cloudbase_login.doLogin().then(res=>{       //公众号登录执行函数
+        if(res.code === 0){                                         //code=0则登录成功
+          app = res.info                                            //info可获取到云开发的实例
+          uid = res.msg                                             //msg可获取到用户的openid（临时功能）
+          db = app.database()                                       //装载云开发数据库对象
+          loadinit()                                                //todo内容加载函数触发
+          setJS()                                                   //weixinJS配置触发
+        }
+        else{
+          alert('登录失败！',res.info)
+          console.log(res.info)
+        }
+      })
+    }
+    else{                                                           //初始化状态，如果为false则无条件，需要引入cloud-sdk
+      alert('没有引入cloud-sdk')
+    }
+  }
+  TODO.itemChange = function (id, type, des) {                      //监听TODO内容改变，自动触发，id-项目id，type-变更类型，des-详细
+    if (type === 'add') {                                           //如果是增加条目
+      if (des != null) {                                            //描述文件不为空，则有文件
+        app.uploadFile({                                            //云开发实例上传文件
+          cloudPath: `todo/${uid}/${TODO.todo[id].file}`,           //保存在todo/用户uid/文件名
+          filePath: des                                             //本地文件
+        }).then((result) => {                                       //上传结果
+          console.log(result)
+          TODO.todo[id].file = result.fileID                        //将fileID更新到新增条目中
+          updatetodo()                                              //调用更新函数，更新到云端
+        });
+      } else {
+        updatetodo()                                                //如果没有文件，则直接调用更新函数，更新到云端
+      }
+    } else if (type === 'delete') {                                 //如果是删除条目
+      if (TODO.todo[id].file != null) {                             //条目中包含文件
+        app.deleteFile({                                            //执行删除云端文件
+          fileList: [TODO.todo[id].file]                            //传入对应的fileID
+        }).then((result) => { 
+          delete TODO.todo[id]                                      //删除对应条目
+          console.log(result)                   
+          updatetodo()                                              //调用更新函数，更新到云端
+        });
+      } else {
+        delete TODO.todo[id]      
+        updatetodo()                                                //如果没有文件，则直接调用更新函数，更新到云端
+      }
+    } else {
+      updatetodo()                                                  //其他情况，直接调用更新函数，更新到云端
+    }
+  }
+  TODO.downLoadfile = function (file) {                             //监听文件下载触发
+    app.downloadFile({                                              //调用实例函数，从云端下载文件（公众号不支持文件系统，所以不支持下载，优化中）
+      fileID: file
+    })
+  }
+  function setJS() {                                                //装载weixinJS，做公众号网页的能力调用
+    cloudbase_login.useJSSDK(app,['updateAppMessageShareData','updateTimelineShareData'],false).then(res=>{
+      console.log(res);                                             //传入实例云开发、获取的能力列表、是否开启调试，装载SDK过程
+      wx.ready(function () {                                        //启动监听，准备成功后自动触发
+        wx.updateAppMessageShareData({                              //更新分享给朋友的链接
+          title: 'TODO待办事项｜超方便效率工具',                        // 分享标题
+          desc: '小程序·云开发提供全链路技术支持，开箱即用',               // 分享描述
+          link: 'https://---------------/todo/',                    // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致
+          imgUrl: 'https://---------------/todo/todo.jpg'           // 分享图标
+        })
+        wx.updateTimelineShareData({                                //更新分享给朋友圈的链接
+          title: 'TODO待办事项｜超方便效率工具',                        // 分享标题
+          link: 'https://---------------/todo/',                    // 分享链接，该链接域名或路径必须与当前页面对应的公众号JS安全域名一致
+          imgUrl: 'https://---------------/todo/todo.jpg'           // 分享图标
+        })
+      });
+    })
+  }
+  function loadinit() {                                             //TODO加载函数
+    db.collection('todo').where({                                   //监听todo集合
+      _id:uid                                                       //传入用户uid
+    }).get().then(res => {
+      if (res.data.length == 0) {                                   //如果没有内容，则是新用户
+        db.collection('todo').add({                                 //新增文档
+          data:{
+            _id: uid,                                               //用户uid
+            list: TODO.todo,                                        //todo内容
+            time: new Date()                                        //更新时间
+          }
+        }).then(res => {
+          console.log(res);
+          watchtodo();                                              //开启数据库监听
+        })
+      }
+      else {
+        console.log(res);
+        TODO.todo = res.data[0].list;                               //将云端内容更新到本地
+        TODO.todoinit();                                            //执行渲染todo列表
+        watchtodo();                                                //开启数据库监听
+      }
+    })
+  }
+  function updatetodo() {
+    db.collection('todo').doc(uid).update({                         //将数据更新到云端
+      data:{
+        list: db.command.set(TODO.todo),                            //直接设置为更新的todo列表
+        time: new Date()                                            //更新时间
+      }
+    }).then(res => {
+    }).catch(e => {
+      console.log(e);
+    })
+  }
+  function watchtodo() {
+    db.collection('todo').doc(uid).watch({                          //开启数据库监听
+      onChange: (snapshot) => {                                     //当改变时
+        console.log(snapshot) 
+        if (snapshot.msgType != "INIT_EVENT") {                     //如果消息类型不是首次加载
+          TODO.todo = snapshot.docs[0].list;                        //更新本地数据
+          TODO.todoinit();                                          //执行渲染todo列表
+        }
+      },
+      onError: (error) => {
+        alert('远端数据库监听失败！');
+      }
+    });
+  }    
+</script>
