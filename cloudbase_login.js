@@ -74,7 +74,7 @@ var cloudbase_login = {
       }
     }
   },
-  useJSSDK: async (instance, jsApiList = [], debug = false) => {
+  useJSSDK: async (instance, jsApiList = [], debug = false, openTagList = []) => {
     if (window.wx) {
       try {
         const res = await instance.getJSSDKSignature({
@@ -86,7 +86,8 @@ var cloudbase_login = {
           timestamp: res.timestamp + '',
           nonceStr: res.nonceStr,
           signature: res.signature,
-          jsApiList: jsApiList
+          jsApiList: jsApiList,
+          openTagList: openTagList
         }
         window.wx.config(configOpt)
         return {
