@@ -33,7 +33,7 @@ var cloudbase_login = {
         provider: 'OfficialAccount',
         appid: cloudbase_login.Info.appid
       }
-      if (cloudbase_login.urlSearch.get('oauthredirect') === '1') {
+      if (cloudbase_login.accessToken.length>32) {
         checkLoginOptions.accessToken = cloudbase_login.accessToken
         checkLoginOptions.refreshToken = cloudbase_login.refreshToken
       }
