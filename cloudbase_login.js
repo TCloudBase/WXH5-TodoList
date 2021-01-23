@@ -1,16 +1,16 @@
-var cloudbase_login = {
+const cloudbaseLogin = {
   Flag: false,
   Info: {
     appid: '',
     resourceAppid: '',
     resourceEnv: '',
     scope: 'snsapi_base',
-    redirectUri: location.href
+    redirectUri: window.location.href
   },
   init: function (obj) {
-    for (const i in cloudbase_login.Info) {
+    for (const i in cloudbaseLogin.Info) {
       if (obj[i] != null) {
-        cloudbase_login.Info[i] = obj[i]
+        cloudbaseLogin.Info[i] = obj[i]
       }
     }
 
@@ -21,35 +21,33 @@ var cloudbase_login = {
       console.error('no found cloud-sdk')
       return false
     }
-    cloudbase_login.urlSearch = new URLSearchParams(location.search)
-    cloudbase_login.accessToken = cloudbase_login.urlSearch.get('access_token')
-    cloudbase_login.refreshToken = cloudbase_login.urlSearch.get('refresh_token')
-    cloudbase_login.Flag = true
+    cloudbaseLogin.urlSearch = new URLSearchParams(window.location.search)
+    cloudbaseLogin.accessToken = cloudbaseLogin.urlSearch.get('access_token')
+    cloudbaseLogin.refreshToken = cloudbaseLogin.urlSearch.get('refresh_token')
+    cloudbaseLogin.Flag = true
     return true
   },
   doLogin: async () => {
     try {
       const checkLoginOptions = {
         provider: 'OfficialAccount',
-        appid: cloudbase_login.Info.appid
-      }
-      if (cloudbase_login.accessToken.length>32) {
-        checkLoginOptions.accessToken = cloudbase_login.accessToken
-        checkLoginOptions.refreshToken = cloudbase_login.refreshToken
+        appid: cloudbaseLogin.Info.appid,
+        accessToken : cloudbaseLogin.accessToken,
+        refreshToken: cloudbaseLogin.refreshToken
       }
       const result = await window.cloud.checkLogin(checkLoginOptions)
       if (result.errCode === 0 && result.loggedIn) {
         console.log(result)
         console.log('checkLogin success')
-        cloudbase_login.instance = new window.cloud.Cloud({
-          appid: cloudbase_login.Info.appid,
-          resourceAppid: cloudbase_login.Info.resourceAppid,
-          resourceEnv: cloudbase_login.Info.resourceEnv
+        cloudbaseLogin.instance = new window.cloud.Cloud({
+          appid: cloudbaseLogin.Info.appid,
+          resourceAppid: cloudbaseLogin.Info.resourceAppid,
+          resourceEnv: cloudbaseLogin.Info.resourceEnv
         })
-        const initResult = await cloudbase_login.instance.init()
+        const initResult = await cloudbaseLogin.instance.init()
         if (initResult.errCode === 0) {
           return {
-            info: cloudbase_login.instance,
+            info: cloudbaseLogin.instance,
             msg: initResult.errMsg,
             code: 0
           }
@@ -62,9 +60,9 @@ var cloudbase_login = {
       } else {
         window.cloud.startLogin({
           provider: 'OfficialAccount',
-          appid: cloudbase_login.Info.appid,
-          scope: cloudbase_login.Info.scope,
-          redirectUri: cloudbase_login.Info.redirectUri
+          appid: cloudbaseLogin.Info.appid,
+          scope: cloudbaseLogin.Info.scope,
+          redirectUri: cloudbaseLogin.Info.redirectUri
         })
       }
     } catch (e) {
@@ -74,20 +72,19 @@ var cloudbase_login = {
       }
     }
   },
-  useJSSDK: async (instance, jsApiList = [], debug = false, openTagList = []) => {
+  useJSSDK: async (instance, jsApiList = [], debug = false) => {
     if (window.wx) {
       try {
         const res = await instance.getJSSDKSignature({
-          url: location.href
+          url: window.location.href
         })
         const configOpt = {
           debug: debug,
-          appId: cloudbase_login.Info.appid,
+          appId: cloudbaseLogin.Info.appid,
           timestamp: res.timestamp + '',
           nonceStr: res.nonceStr,
           signature: res.signature,
-          jsApiList: jsApiList,
-          openTagList: openTagList
+          jsApiList: jsApiList
         }
         window.wx.config(configOpt)
         return {
@@ -107,3 +104,4 @@ var cloudbase_login = {
     }
   }
 }
+window.cloudbaseLogin = cloudbaseLogin
